@@ -1,0 +1,19 @@
+# Кэш Python и тестов
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Настройки среды разработки PyCharm
+.idea/
+*.iws
+
+# Виртуальные окружения
+.venv/
+venv/
+ENV/
+
+# Системные файлы Windows
+Thumbs.db
+desktop.ini

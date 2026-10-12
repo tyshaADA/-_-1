@@ -4,6 +4,7 @@ import os
 import tkinter as tk
 from src.main import ShellEmulator
 
+
 def test_env_var_expansion() -> None:
     """Проверяет корректность раскрытия системных переменных окружения."""
     root = tk.Tk()

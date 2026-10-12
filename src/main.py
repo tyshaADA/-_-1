@@ -294,6 +294,5 @@ def main() -> None:
     ShellEmulator(root, parsed_args.vfs, parsed_args.script)
     root.mainloop()
 
-
 if __name__ == "__main__":
     main()

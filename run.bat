@@ -1,4 +1,4 @@
 @echo off
-rem Запуск главного скрипта с передачей всех параметров командной строки (%*)
-python src/main.py %*
+rem Запуск с автоматической передачей тестовых путей к файлам VFS и скрипта
+python src/main.py --vfs vfs.csv --script start_script.sh
 pause

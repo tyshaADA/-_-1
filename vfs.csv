@@ -1,8 +1,8 @@
-/,dir
-/home,dir
-/home/user,dir
-/home/user/docs,dir
-/home/user/notes.txt,file
-/home/user/docs/report.pdf,file
-/etc,dir
-/etc/config.json,file
+/,dir,0,755
+/home,dir,0,755
+/home/user,dir,0,755
+/home/user/docs,dir,0,755
+/home/user/notes.txt,file,1024,644
+/home/user/docs/report.pdf,file,5120,644
+/etc,dir,0,755
+/etc/config.json,file,256,600

@@ -1,1 +1,8 @@
-/root,/root/home,dir
+/,dir
+/home,dir
+/home/user,dir
+/home/user/docs,dir
+/home/user/notes.txt,file
+/home/user/docs/report.pdf,file
+/etc,dir
+/etc/config.json,file

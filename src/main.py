@@ -1,9 +1,10 @@
 """Модуль GUI-эмулятора командной строки UNIX-подобной ОС.
 
-Реализует интерактивное окно терминала и чтение конфигурации для Варианта №2.
+Реализует интерактивное окно терминала и виртуальную файловую систему VFS.
 """
 
 import argparse
+import csv
 import os
 import re
 import socket
@@ -11,16 +12,21 @@ import sys
 import tkinter as tk
 
 class ShellEmulator:
-    """Класс графического интерфейса и логики эмулятора оболочки."""
+    """Класс графического интерфейса и логики эмулятора оболочки с VFS."""
 
     def __init__(self, root: tk.Tk, vfs_path: str, script_path: str) -> None:
-        """Инициализирует окно, параметры конфигурации и компоненты GUI."""
+        """Инициализирует окно, VFS и компоненты GUI."""
         self.root = root
         self.vfs_path = vfs_path
         self.script_path = script_path
 
+        # Переменные виртуальной среды
+        self.current_dir = "/home/user"  # Начальная рабочая директория
+        self.vfs = {}  # Словарь вида {"/path": "dir"/"file"}
+
         self.setup_window()
         self.create_widgets()
+        self.load_vfs()
         self.print_debug_info()
         self.execute_start_script()
 
@@ -57,6 +63,25 @@ class ShellEmulator:
         self.output_text.see(tk.END)
         self.output_text.config(state=tk.DISABLED)
 
+    def load_vfs(self) -> None:
+        """Загружает структуру файловой системы из CSV-файла."""
+        if not os.path.exists(self.vfs_path):
+            self.append_output(f"Критическая ошибка: файл VFS не найден: {self.vfs_path}")
+            return
+        try:
+            with open(self.vfs_path, "r", encoding="utf-8") as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    if not row or len(row) < 2:
+                        continue
+                    path, item_type = row[0].strip(), row[1].strip()
+                    # Приводим к единому стандарту путей (без слэша на конце для файлов/папок кроме /)
+                    if path != "/" and path.endswith("/"):
+                        path = path.rstrip("/")
+                    self.vfs[path] = item_type
+        except Exception as err:
+            self.append_output(f"Ошибка загрузки VFS: {err}")
+
     def print_debug_info(self) -> None:
         """Выводит отладочную информацию о параметрах конфигурации при старте."""
         self.append_output("=== ОТЛАДОЧНАЯ ИНФОРМАЦИЯ КОНФИГУРАЦИИ ===")
@@ -74,10 +99,8 @@ class ShellEmulator:
             with open(self.script_path, "r", encoding="utf-8") as file:
                 for line in file:
                     cleaned_line = line.strip()
-                    # Пропускаем пустые строки и комментарии
                     if not cleaned_line or cleaned_line.startswith("#"):
                         continue
-                    # Имитируем ввод пользователя и выполнение команды
                     self.append_output(f"$ {cleaned_line}")
                     self.process_command(cleaned_line)
         except Exception as err:
@@ -92,6 +115,60 @@ class ShellEmulator:
         pattern = r"\$(?:{([A-Za-z0-9_]+)}|([A-Za-z0-9_]+))"
         return re.sub(pattern, replacer, line)
 
+    def get_absolute_path(self, target: str) -> str:
+        """Вычисляет абсолютный путь в VFS с учетом относительного перехода."""
+        if target.startswith("/"):
+            abs_path = target
+        else:
+            if self.current_dir == "/":
+                abs_path = f"/{target}"
+            else:
+                abs_path = f"{self.current_dir}/{target}"
+
+        # Нормализуем путь (обрабатываем точки '.' и '..')
+        parts = []
+        for part in abs_path.split("/"):
+            if part == "" or part == ".":
+                continue
+            if part == "..":
+                if parts:
+                    parts.pop()
+            else:
+                parts.append(part)
+
+        result = "/" + "/".join(parts)
+        return result
+
+    def cmd_ls(self) -> None:
+        """Выводит список элементов в текущей директории."""
+        contents = set()
+        current = self.current_dir
+
+        for path in self.vfs:
+            if path == current or path == "/":
+                continue
+
+            # Проверяем, находится ли элемент непосредственно внутри current
+            if path.startswith(current if current != "/" else ""):
+                relative = path[len(current):].lstrip("/")
+                if "/" not in relative and relative:
+                    contents.add(relative)
+
+        if contents:
+            self.append_output("  ".join(sorted(contents)))
+        else:
+            self.append_output("")
+
+    def cmd_cd(self, args: list) -> None:
+        """Изменяет текущую рабочую директорию."""
+        target = args[0] if args else "/home/user"
+        target_abs = self.get_absolute_path(target)
+
+        if target_abs in self.vfs and self.vfs[target_abs] == "dir":
+            self.current_dir = target_abs
+        else:
+            self.append_output(f"cd: нет такого каталога: {target}")
+
     def process_command(self, raw_input: str) -> None:
         """Выполняет разбор строки ввода и обрабатывает конкретную команду."""
         expanded_input = self.expand_env_vars(raw_input)
@@ -105,8 +182,10 @@ class ShellEmulator:
         if cmd == "exit":
             self.root.quit()
             sys.exit(0)
-        elif cmd in ("ls", "cd"):
-            self.append_output(f"[Заглушка] Команда: {cmd}, Аргументы: {args}")
+        elif cmd == "ls":
+            self.cmd_ls()
+        elif cmd == "cd":
+            self.cmd_cd(args)
         else:
             self.append_output(f"Ошибка: неизвестная команда '{cmd}'")
 
@@ -118,7 +197,8 @@ class ShellEmulator:
         if not raw_input:
             return
 
-        self.append_output(f"$ {raw_input}")
+        # Для наглядности выводим перед командой текущую директорию (как в Linux)
+        self.append_output(f"{self.current_dir} $ {raw_input}")
         self.process_command(raw_input)
 
 def main() -> None:
@@ -126,7 +206,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="GUI-эмулятор командной строки UNIX."
     )
-    # Обязательные аргументы по заданию
     parser.add_argument(
         "--vfs", required=True, help="Путь к физическому расположению VFS"
     )
